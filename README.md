@@ -152,7 +152,7 @@ Benefits:
 
 ## 📄 Configuration (YAML)
 
-Server uses `config.yml` (Minecraft-style).
+Server uses `config.yml`
 
 Example:
 
@@ -164,8 +164,6 @@ world:
   playerTileCooldownMs: 1000
   tileCooldownMs: 3000
 ```
-
-Loaded at runtime via `YamlDotNet`.
 
 ---
 
@@ -190,7 +188,7 @@ Implemented:
 
 ---
 
-## 📡 Client Flow (Unity)
+## 📡 Client Flow
 
 ```
 Connect →
