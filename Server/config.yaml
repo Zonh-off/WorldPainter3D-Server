@@ -1,0 +1,7 @@
+﻿world:
+  viewDistance: 3
+  chunkSize: 4
+  worldSizeInChunks: 64
+  
+gameplay:
+  tileChangeCooldownMs: 0
