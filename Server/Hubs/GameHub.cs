@@ -1,41 +1,47 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Server.Contracts;
+using Server.DTOs;
 using Server.Services;
 
 namespace Server.Hubs;
-
-[Serializable]
-public record struct GameConfigResponse
-{
-    public int viewDistance { get; set; }
-    public int chunkSize { get; set; }
-    public int worldSizeInChunks { get; set; }
-}
 
 public class GameHub(ServerConfig config, PlayerService playerService, WorldService worldService) : Hub
 {
     public override async Task OnConnectedAsync()
     {
-        string playerId = Context.ConnectionId;
-        Console.WriteLine($"Player connected: {playerId}");
-        playerService.RegisterPlayer(playerId);
+        playerService.RegisterConnection(Context.ConnectionId);
         
-        await Clients.Caller.SendAsync(Messages.GameConfig, new GameConfigResponse
-        {
-            viewDistance = config.World.ViewDistance,
-            chunkSize = config.World.ChunkSize,
-            worldSizeInChunks = config.World.WorldSizeInChunks
-        });
+        await Clients.Caller.SendAsync("NeedHello");
         
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        string playerId = Context.ConnectionId;
-        Console.WriteLine($"Player disconnected: {playerId}");
-        playerService.UnregisterPlayer(playerId);
+        playerService.UnregisterConnection(Context.ConnectionId);
+        
         await base.OnDisconnectedAsync(exception);
+    }
+    
+    public async Task Hello(HelloDto hello)
+    {
+        var ok = playerService.BindGuestId(Context.ConnectionId, hello.guestId);
+
+        await Clients.Caller.SendAsync("HelloAck", new HelloAckDto
+        {
+            ok = ok,
+            guestId = hello.guestId
+        });
+
+        if (!ok) return;
+
+        await Clients.Caller.SendAsync(Messages.GameConfig, new GameConfigResponse
+        {
+            viewDistance = config.World.ViewDistance,
+            chunkSize = config.World.ChunkSize,
+            worldSizeInChunks = config.World.WorldSizeInChunks,
+            tileChangeCooldownMs = config.Gameplay.TileChangeCooldownMs
+        });
     }
     
     public async Task RequestChunk(int x, int y)
@@ -44,15 +50,49 @@ public class GameHub(ServerConfig config, PlayerService playerService, WorldServ
         await Clients.Caller.SendAsync(Messages.ChunkData, x, y, tiles);
     }
     
-    public async Task ReplaceTile(int x, int y, int id)
+    public async Task TryReplaceTile(int requestId, int x, int y, int id)
     {
-        string playerId = Context.ConnectionId;
+        if (!playerService.TryGetUserId(Context.ConnectionId, out var userId))
+        {
+            await Clients.Caller.SendAsync("TileChangeResult", new TileChangeResponse
+            {
+                requestId = requestId,
+                ok = false,
+                fail = TileChangeFail.PlayerCooldown,
+                nextAllowedTicksUtc = 0
+            });
+            return;
+        }
+        
+        // Can't replace
+        if (!playerService.TryConsumeTileChange(userId, out var playerNext))
+        {
+            await Clients.Caller.SendAsync(Messages.TileChangeResult,
+                                           new TileChangeResponse
+                                           {
+                                               requestId = requestId,
+                                               ok = false,
+                                               fail = TileChangeFail.PlayerCooldown,
+                                               nextAllowedTicksUtc = playerNext
+                                           });
+            return;
+        }
 
-        if (!playerService.CanChangeTile(playerId))
+        // Can replace
+        var result = worldService.TrySetTile(x, y, id);
+
+        await Clients.Caller.SendAsync(Messages.TileChangeResult,
+                                       new TileChangeResponse
+                                       {
+                                           requestId = requestId,
+                                           ok = result.Ok,
+                                           fail = result.Fail,
+                                           nextAllowedTicksUtc = result.NextAllowedTicksUtc
+                                       });
+
+        if (!result.Ok)
             return;
 
-        worldService.SetTile(x, y, id);
-        
         await Clients.All.SendAsync(Messages.TileUpdate, x, y, id);
     }
 }

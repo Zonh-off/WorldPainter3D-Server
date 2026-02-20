@@ -29,6 +29,9 @@ app.UseCors();
 app.UseRouting();
 app.UseCors(policy => policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 
+var world = app.Services.GetRequiredService<WorldService>();
+world.PreGenerateAllChunks();
+
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapHub<GameHub>("/gamehub");
