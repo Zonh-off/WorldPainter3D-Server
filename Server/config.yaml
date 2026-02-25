@@ -2,6 +2,7 @@
   viewDistance: 3
   chunkSize: 4
   worldSizeInChunks: 64
+  tileCooldownMs: 0
   
 gameplay:
   tileChangeCooldownMs: 0

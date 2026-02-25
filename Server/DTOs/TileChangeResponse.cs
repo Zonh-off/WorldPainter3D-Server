@@ -5,8 +5,7 @@ namespace Server.DTOs;
 [Serializable]
 public struct TileChangeResponse
 {
-    public int requestId;
-    public bool ok;
-    public TileChangeFail fail;
-    public long nextAllowedTicksUtc;
+    public bool ok { get; set; }
+    public TileChangeFail fail { get; set; }
+    public long nextAllowedTicksUtc { get; set; }
 }

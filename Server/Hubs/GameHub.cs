@@ -23,18 +23,18 @@ public class GameHub(ServerConfig config, PlayerService playerService, WorldServ
         await base.OnDisconnectedAsync(exception);
     }
     
-    public async Task Hello(HelloDto hello)
+    public async Task Hello(string guestId)
     {
-        var ok = playerService.BindGuestId(Context.ConnectionId, hello.guestId);
-
-        await Clients.Caller.SendAsync("HelloAck", new HelloAckDto
+        var ok = playerService.BindGuestId(Context.ConnectionId, guestId);
+        
+        await Clients.Caller.SendAsync("HelloAck", new HelloAckResponse
         {
             ok = ok,
-            guestId = hello.guestId
+            guestId = guestId
         });
 
         if (!ok) return;
-
+        
         await Clients.Caller.SendAsync(Messages.GameConfig, new GameConfigResponse
         {
             viewDistance = config.World.ViewDistance,
@@ -50,13 +50,12 @@ public class GameHub(ServerConfig config, PlayerService playerService, WorldServ
         await Clients.Caller.SendAsync(Messages.ChunkData, x, y, tiles);
     }
     
-    public async Task TryReplaceTile(int requestId, int x, int y, int id)
+    public async Task TryReplaceTile(int x, int y, int id)
     {
         if (!playerService.TryGetUserId(Context.ConnectionId, out var userId))
         {
             await Clients.Caller.SendAsync("TileChangeResult", new TileChangeResponse
             {
-                requestId = requestId,
                 ok = false,
                 fail = TileChangeFail.PlayerCooldown,
                 nextAllowedTicksUtc = 0
@@ -70,7 +69,6 @@ public class GameHub(ServerConfig config, PlayerService playerService, WorldServ
             await Clients.Caller.SendAsync(Messages.TileChangeResult,
                                            new TileChangeResponse
                                            {
-                                               requestId = requestId,
                                                ok = false,
                                                fail = TileChangeFail.PlayerCooldown,
                                                nextAllowedTicksUtc = playerNext
@@ -84,7 +82,6 @@ public class GameHub(ServerConfig config, PlayerService playerService, WorldServ
         await Clients.Caller.SendAsync(Messages.TileChangeResult,
                                        new TileChangeResponse
                                        {
-                                           requestId = requestId,
                                            ok = result.Ok,
                                            fail = result.Fail,
                                            nextAllowedTicksUtc = result.NextAllowedTicksUtc
