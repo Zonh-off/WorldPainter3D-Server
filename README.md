@@ -1,4 +1,4 @@
-# 🌍 Multiplayer World Server (Unity + SignalR)
+# 🌍 Multiplayer World Server
 
 Server-side authoritative world simulation for a tile-based survival / automation game.
 
